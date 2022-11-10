@@ -1,9 +1,13 @@
 package libpag.pagviewer;
 
+import static android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+
 import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
+import android.graphics.Matrix;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -12,8 +16,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 
+import org.libpag.PAG;
+import org.libpag.PAGComposition;
+import org.libpag.PAGView;
 import org.libpag.VideoDecoder;
 
 import java.io.File;
@@ -23,12 +31,13 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
-    RelativeLayout containerView;
-    Button btPlayFirst;
+    LinearLayout containerView;
+    Button       btPlayFirst;
     Button btPlaySecond;
 
     PAGPlayerView firstPlayer = null;
     PAGPlayerView secondPlayer = null;
+    Handler handler = new Handler();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,7 +45,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         setContentView(R.layout.activity_main);
-        containerView = (RelativeLayout) findViewById(R.id.container_view);
+        containerView = (LinearLayout) findViewById(R.id.container_view);
         btPlayFirst = (Button) findViewById(R.id.play_first);
         if (btPlayFirst == null) {
             return;
@@ -52,9 +61,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         secondPlayer = createPlayerView();
 
         activatedView(btPlayFirst.getId());
-        if (firstPlayer != null) {
-            play(firstPlayer, btPlayFirst.getText().toString());
-        }
     }
 
     private PAGPlayerView createPlayerView() {
@@ -63,38 +69,28 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         return pagView;
     }
 
-    private void play(final PAGPlayerView player, String pagPath) {
-        releasePagView();
+    private int getPlayCount() {
+        if (getResources().getConfiguration().orientation == ORIENTATION_LANDSCAPE) {
+            return 15;
+        }
+        return 6;
+    }
+
+    private void play() {
         containerView.removeAllViews();
-        BackgroundView backgroundView = new BackgroundView(this);
-        backgroundView.setLayoutParams(new RelativeLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        containerView.addView(backgroundView);
 
-        View pagView = player.createView(this, pagPath);
-        pagView.setOnTouchListener(new View.OnTouchListener() {
-            boolean isPlay = true;
-
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                switch (event.getAction()) {
-                    case MotionEvent.ACTION_UP:
-                        if (isPlay) {
-                            isPlay = false;
-                            stopPlayPAG(player);
-                        } else {
-                            isPlay = true;
-                            resumePlayPAG(player);
-                        }
-                        break;
-                    default:
-                        break;
+        for (int i = getPlayCount(); i > 0; --i) {
+            final PAGView pagView = createPlayerView().createView(this, "flower.pag");
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT,
+                    1F);
+            containerView.addView(pagView, lp);
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    pagView.play();
                 }
-                return true;
-            }
-        });
-        containerView.addView(pagView);
-        player.play();
+            }, 100 * i);
+        }
     }
 
     private void stopPlayPAG(PAGPlayerView player) {
@@ -163,14 +159,33 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     public void onClick(View v) {
         if (v.getId() == R.id.play_second) {
-            VideoDecoder.SetMaxHardwareDecoderCount(0);
-            play(secondPlayer, btPlaySecond.getText().toString());
+//            VideoDecoder.SetMaxHardwareDecoderCount(0);
+            playInOneView();
             activatedView(R.id.play_second);
         } else {
-            VideoDecoder.SetMaxHardwareDecoderCount(15);
-            play(firstPlayer, btPlayFirst.getText().toString());
+//            VideoDecoder.SetMaxHardwareDecoderCount(15);
+            play();
             activatedView(R.id.play_first);
         }
+    }
+
+    public void playInOneView() {
+        containerView.removeAllViews();
+        int count = getPlayCount();
+        PAGComposition root = PAGComposition.Make(300 * count, 1000);
+        Matrix matrix = new Matrix();
+        for (int i = 0; i < count; ++i) {
+            PAGComposition composition = PAGPlayerView.applyTransform(this, "flower.pag");
+            composition.setMatrix(matrix);
+            composition.setStartTime(100 * 1000 * i);
+            root.addLayer(composition);
+            matrix.postTranslate(300, 0);
+        }
+        PAGView view = new PAGView(this);
+        view.setComposition(root);
+        view.setRepeatCount(0);
+        containerView.addView(view);
+        view.play();
     }
 
     public String readToString(String fileName) {

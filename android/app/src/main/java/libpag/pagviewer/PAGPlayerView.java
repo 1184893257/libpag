@@ -49,25 +49,22 @@ public class PAGPlayerView {
     private EGLContext eglContext = null;
     private int textureID = 0;
 
-    public View createView(Context context, String pagPath) {
+    public static PAGComposition applyTransform(Context context, String pagPath) {
+        PAGFile pagFile = PAGFile.Load(context.getAssets(), pagPath);
+        PAGFile transform = PAGFile.Load(context.getAssets(), "normal0.pag");
+        PAGComposition comp = (PAGComposition) transform.getLayerAt(0);
+        comp.removeAllLayers();
+        comp.addLayer(pagFile);
+        return transform;
+    }
+
+    public PAGView createView(Context context, String pagPath) {
         eglSetup();
         mPagView = new PAGView(context, eglContext);
         if (composition != null) {
             mPagView.setComposition(composition);
         } else {
-            PAGFile pagFile = PAGFile.Load(context.getAssets(), pagPath);
-            if (pagFile.numTexts() > 0) {
-                PAGText pagText = pagFile.getTextData(0);
-                pagText.text = "hahhha哈哈哈😆哈哈哈";
-                pagText.fauxItalic = true;
-                pagFile.replaceText(0, pagText);
-            }
-            if (pagFile.numImages() > 0) {
-                PAGImage pagImage = PAGImage.FromAssets(context.getAssets(), "rotation.jpg");
-//                PAGImage pagImage = makePAGImage(context, "mountain.jpg");
-                pagFile.replaceImage(0, pagImage);
-            }
-            mPagView.setComposition(pagFile);
+            mPagView.setComposition(applyTransform(context, pagPath));
         }
         mPagView.setLayoutParams(new RelativeLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
