@@ -240,7 +240,8 @@ elseif (ANDROID)
 
     # optimizes the output size
     set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--gc-sections -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/android/libpag/export.def")
-    add_compile_options(-ffunction-sections -fdata-sections -Os -fno-exceptions -fno-rtti)
+#    add_compile_options(-ffunction-sections -fdata-sections -Os -fno-exceptions -fno-rtti)
+    add_compile_options(-fno-exceptions -fno-rtti)
 
     if (USE_NATIVE_PLATFORM)
         find_library(GLESV2_LIB GLESv2)

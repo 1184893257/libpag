@@ -28,6 +28,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
@@ -38,6 +39,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     PAGPlayerView firstPlayer = null;
     PAGPlayerView secondPlayer = null;
     Handler handler = new Handler();
+    byte[] flowerData;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,6 +62,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         firstPlayer = createPlayerView();
         secondPlayer = createPlayerView();
 
+        flowerData = readFile("flower.pag");
+
         activatedView(btPlayFirst.getId());
     }
 
@@ -70,17 +74,18 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private int getPlayCount() {
-        if (getResources().getConfiguration().orientation == ORIENTATION_LANDSCAPE) {
-            return 15;
-        }
-        return 6;
+//        if (getResources().getConfiguration().orientation == ORIENTATION_LANDSCAPE) {
+//            return 15;
+//        }
+//        return 6;
+        return 1;
     }
 
     private void play() {
         containerView.removeAllViews();
 
         for (int i = getPlayCount(); i > 0; --i) {
-            final PAGView pagView = createPlayerView().createView(this, "flower.pag");
+            final PAGView pagView = createPlayerView().createView(this, flowerData);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT,
                     1F);
             containerView.addView(pagView, lp);
@@ -175,7 +180,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         PAGComposition root = PAGComposition.Make(300 * count, 1000);
         Matrix matrix = new Matrix();
         for (int i = 0; i < count; ++i) {
-            PAGComposition composition = PAGPlayerView.applyTransform(this, "flower.pag");
+            PAGComposition composition = PAGPlayerView.applyTransform(this, flowerData);
             composition.setMatrix(matrix);
             composition.setStartTime(100 * 1000 * i);
             root.addLayer(composition);
@@ -186,6 +191,21 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         view.setRepeatCount(0);
         containerView.addView(view);
         view.play();
+    }
+
+    public byte[] readFile(String fileName) {
+        try {
+            InputStream in = getAssets().open(fileName);
+            byte[] filecontent = new byte[in.available()];
+            in.read(filecontent);
+            in.close();
+            return filecontent;
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
     public String readToString(String fileName) {

@@ -49,8 +49,8 @@ public class PAGPlayerView {
     private EGLContext eglContext = null;
     private int textureID = 0;
 
-    public static PAGComposition applyTransform(Context context, String pagPath) {
-        PAGFile pagFile = PAGFile.Load(context.getAssets(), pagPath);
+    public static PAGComposition applyTransform(Context context, byte[] data) {
+        PAGFile pagFile = PAGFile.Load(data);
         PAGFile transform = PAGFile.Load(context.getAssets(), "normal0.pag");
         PAGComposition comp = (PAGComposition) transform.getLayerAt(0);
         comp.removeAllLayers();
@@ -58,13 +58,13 @@ public class PAGPlayerView {
         return transform;
     }
 
-    public PAGView createView(Context context, String pagPath) {
+    public PAGView createView(Context context, byte[] data) {
         eglSetup();
         mPagView = new PAGView(context, eglContext);
         if (composition != null) {
             mPagView.setComposition(composition);
         } else {
-            mPagView.setComposition(applyTransform(context, pagPath));
+            mPagView.setComposition(applyTransform(context, data));
         }
         mPagView.setLayoutParams(new RelativeLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
