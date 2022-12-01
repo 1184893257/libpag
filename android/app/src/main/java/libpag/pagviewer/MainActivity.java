@@ -8,21 +8,20 @@ import android.content.pm.PackageManager;
 import android.graphics.Matrix;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Message;
+import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
 
-import org.libpag.PAG;
 import org.libpag.PAGComposition;
+import org.libpag.PAGLayer;
 import org.libpag.PAGView;
-import org.libpag.VideoDecoder;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -38,7 +37,16 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     PAGPlayerView firstPlayer = null;
     PAGPlayerView secondPlayer = null;
-    Handler handler = new Handler();
+    Handler handler = new Handler() {
+        @Override
+        public void handleMessage(@NonNull Message msg) {
+            matrix.reset();
+            matrix.postTranslate(300 * msg.what, 0);
+            final PAGComposition composition = PAGPlayerView.applyTransform(MainActivity.this, flowerData);
+            composition.setMatrix(matrix);
+            play(composition);
+        }
+    };
     byte[] flowerData;
 
     @Override
@@ -74,11 +82,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private int getPlayCount() {
-//        if (getResources().getConfiguration().orientation == ORIENTATION_LANDSCAPE) {
-//            return 15;
-//        }
-//        return 6;
-        return 1;
+        if (getResources().getConfiguration().orientation == ORIENTATION_LANDSCAPE) {
+            return 15;
+        }
+        return 6;
     }
 
     private void play() {
@@ -174,23 +181,76 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
+    Matrix matrix = new Matrix();
+    private float[] tmpMatrix = new float[9];
+    private PAGView pagView;
+    private PAGComposition container;
+
+    public void play(PAGComposition composition) {
+        // 移除已经播放完毕的，偏移还没有播放完的(container会重新从0开始播放)
+        long currentTime = container.currentTime();
+        for (int i = container.numChildren() - 1; i >= 0; --i) {
+            PAGLayer child = container.getLayerAt(i);
+            if (child.startTime() + child.duration() <= currentTime) {
+                container.removeLayerAt(i);
+                child.matrix().getValues(tmpMatrix);
+                float width = ((PAGComposition)child).width();
+                int index = (int)(tmpMatrix[Matrix.MTRANS_X] / width + 0.5F);
+                handler.sendEmptyMessage(index);
+            } else {
+                child.setStartTime(-(child.currentTime() - child.startTime()));
+            }
+        }
+        container.addLayer(composition);
+
+        pagView.setComposition(container);
+        if (!pagView.isPlaying()) {
+            pagView.play();
+        } else {
+            pagView.setProgress(0F);
+        }
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                checkFinished();
+            }
+        }, (composition.duration() + 300) / 1000);
+    }
+
+    public void checkFinished() {
+        long currentTime = container.currentTime();
+        for (int i = container.numChildren() - 1; i >= 0; --i) {
+            PAGLayer child = container.getLayerAt(i);
+            if (child.startTime() + child.duration() <= currentTime) {
+                container.removeLayerAt(i);
+                child.matrix().getValues(tmpMatrix);
+                float width = ((PAGComposition)child).width();
+                int index = (int)(tmpMatrix[Matrix.MTRANS_X] / width + 0.5F);
+                handler.sendEmptyMessage(index);
+            }
+        }
+    }
+
     public void playInOneView() {
         containerView.removeAllViews();
-        int count = getPlayCount();
-        PAGComposition root = PAGComposition.Make(300 * count, 1000);
+        pagView  = new PAGView(this);
+        int                  count = getPlayCount();
+        container  = PAGComposition.Make(300 * count, 1000);
+        containerView.addView(pagView);
+
         Matrix matrix = new Matrix();
         for (int i = 0; i < count; ++i) {
-            PAGComposition composition = PAGPlayerView.applyTransform(this, flowerData);
+            final PAGComposition composition = PAGPlayerView.applyTransform(this, flowerData);
             composition.setMatrix(matrix);
-            composition.setStartTime(100 * 1000 * i);
-            root.addLayer(composition);
             matrix.postTranslate(300, 0);
+
+            handler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    play(composition);
+                }
+            }, 100 * i);
         }
-        PAGView view = new PAGView(this);
-        view.setComposition(root);
-        view.setRepeatCount(0);
-        containerView.addView(view);
-        view.play();
     }
 
     public byte[] readFile(String fileName) {
