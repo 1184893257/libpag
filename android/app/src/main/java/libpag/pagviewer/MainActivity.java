@@ -9,6 +9,7 @@ import android.graphics.Matrix;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.os.SystemClock;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -29,6 +30,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
+import java.util.Random;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
     LinearLayout containerView;
@@ -38,16 +40,22 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     PAGPlayerView firstPlayer = null;
     PAGPlayerView secondPlayer = null;
     Handler handler = new Handler() {
+        int count = 0;
+        long lastTime = 0;
         @Override
-        public void handleMessage(@NonNull Message msg) {
-            matrix.reset();
-            matrix.postTranslate(300 * msg.what, 0);
-            final PAGComposition composition = PAGPlayerView.applyTransform(MainActivity.this, flowerData);
-            composition.setMatrix(matrix);
-            play(composition);
+        public void dispatchMessage(@NonNull Message msg) {
+            count++;
+            long current = SystemClock.uptimeMillis();
+            super.dispatchMessage(msg);
+            if (lastTime + 1000 < current) {
+                Log.e("lqytest", "count " + count);
+                lastTime = current;
+                count = 0;
+            }
         }
     };
     byte[] flowerData;
+    int delayMax = 400;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -89,20 +97,28 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void play() {
+        handler.removeCallbacksAndMessages(this);
         containerView.removeAllViews();
 
         for (int i = getPlayCount(); i > 0; --i) {
             final PAGView pagView = createPlayerView().createView(this, flowerData);
+            pagView.setTag(PAGComposition.Make(300, 1000));
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT,
                     1F);
             containerView.addView(pagView, lp);
-            handler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    pagView.play();
-                }
-            }, 100 * i);
         }
+
+        handler.postAtTime(new Runnable() {
+            Random random = new Random();
+
+            @Override
+            public void run() {
+                final PAGComposition composition = PAGPlayerView.applyTransform(MainActivity.this, flowerData);
+                play((PAGView) containerView.getChildAt(random.nextInt(getPlayCount())), composition);
+                long current = SystemClock.uptimeMillis();
+                handler.postAtTime(this, MainActivity.this, current + random.nextInt(delayMax));
+            }
+        }, this, SystemClock.uptimeMillis());
     }
 
     private void stopPlayPAG(PAGPlayerView player) {
@@ -121,6 +137,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     protected void onDestroy() {
         super.onDestroy();
         releasePagView();
+        handler.removeCallbacksAndMessages(this);
     }
 
     private void releasePagView() {
@@ -181,22 +198,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    Matrix matrix = new Matrix();
-    private float[] tmpMatrix = new float[9];
-    private PAGView pagView;
-    private PAGComposition container;
-
-    public void play(PAGComposition composition) {
-        // 移除已经播放完毕的，偏移还没有播放完的(container会重新从0开始播放)
+    public void play(PAGView pagView, PAGComposition composition) {
+        PAGComposition container = (PAGComposition) pagView.getTag();
         long currentTime = container.currentTime();
         for (int i = container.numChildren() - 1; i >= 0; --i) {
             PAGLayer child = container.getLayerAt(i);
             if (child.startTime() + child.duration() <= currentTime) {
                 container.removeLayerAt(i);
-                child.matrix().getValues(tmpMatrix);
-                float width = ((PAGComposition)child).width();
-                int index = (int)(tmpMatrix[Matrix.MTRANS_X] / width + 0.5F);
-                handler.sendEmptyMessage(index);
             } else {
                 child.setStartTime(-(child.currentTime() - child.startTime()));
             }
@@ -209,48 +217,31 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         } else {
             pagView.setProgress(0F);
         }
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                checkFinished();
-            }
-        }, (composition.duration() + 300) / 1000);
-    }
-
-    public void checkFinished() {
-        long currentTime = container.currentTime();
-        for (int i = container.numChildren() - 1; i >= 0; --i) {
-            PAGLayer child = container.getLayerAt(i);
-            if (child.startTime() + child.duration() <= currentTime) {
-                container.removeLayerAt(i);
-                child.matrix().getValues(tmpMatrix);
-                float width = ((PAGComposition)child).width();
-                int index = (int)(tmpMatrix[Matrix.MTRANS_X] / width + 0.5F);
-                handler.sendEmptyMessage(index);
-            }
-        }
     }
 
     public void playInOneView() {
+        handler.removeCallbacksAndMessages(this);
         containerView.removeAllViews();
-        pagView  = new PAGView(this);
-        int                  count = getPlayCount();
-        container  = PAGComposition.Make(300 * count, 1000);
+        final PAGView pagView = new PAGView(this);
+        int           count   = getPlayCount();
+        PAGComposition container  = PAGComposition.Make(300 * count, 1000);
+        pagView.setTag(container);
         containerView.addView(pagView);
 
-        Matrix matrix = new Matrix();
-        for (int i = 0; i < count; ++i) {
-            final PAGComposition composition = PAGPlayerView.applyTransform(this, flowerData);
-            composition.setMatrix(matrix);
-            matrix.postTranslate(300, 0);
+        handler.postAtTime(new Runnable() {
+            Random random = new Random();
+            Matrix matrix = new Matrix();
 
-            handler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    play(composition);
-                }
-            }, 100 * i);
-        }
+            @Override
+            public void run() {
+                matrix.reset();
+                matrix.postTranslate(300 * random.nextInt(getPlayCount()), 0);
+                final PAGComposition composition = PAGPlayerView.applyTransform(MainActivity.this, flowerData);
+                composition.setMatrix(matrix);
+                play(pagView, composition);
+                handler.postAtTime(this, MainActivity.this, SystemClock.uptimeMillis() + random.nextInt(delayMax));
+            }
+        }, this, SystemClock.uptimeMillis());
     }
 
     public byte[] readFile(String fileName) {
