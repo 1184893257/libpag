@@ -14,6 +14,7 @@ import android.opengl.GLES20;
 import android.opengl.GLUtils;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Display;
 import android.view.View;
 import android.view.ViewGroup;
@@ -35,6 +36,8 @@ import java.io.IOException;
 import java.io.InputStream;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+    private static final String TAG = "fuck";
+
     RelativeLayout containerView;
     Button btPlayFirst;
     Button btPlaySecond;
@@ -57,6 +60,33 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         BackgroundView backgroundView = new BackgroundView(this);
         backgroundView.setLayoutParams(new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         containerView.addView(backgroundView);
+        WemeetPAGView pagView1 = findViewById(R.id.wemeet_pag);
+        pagView1.addListener(new PAGView.PAGViewListener() {
+            @Override
+            public void onAnimationStart(PAGView view) {
+
+            }
+
+            @Override
+            public void onAnimationEnd(PAGView view) {
+                Log.i(TAG, "onAnimationEnd");
+            }
+
+            @Override
+            public void onAnimationCancel(PAGView view) {
+
+            }
+
+            @Override
+            public void onAnimationRepeat(PAGView view) {
+
+            }
+
+            @Override
+            public void onAnimationUpdate(PAGView view) {
+
+            }
+        });
 
         btPlayFirst = findViewById(R.id.play_first);
         if (btPlayFirst == null) {
@@ -69,8 +99,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
         btPlaySecond.setOnClickListener(this);
 
-        addPAGViewAndPlay();
-        activatedView(btPlayFirst.getId());
+//        addPAGViewAndPlay();
+//        activatedView(btPlayFirst.getId());
     }
 
     private void addPAGViewAndPlay() {
@@ -181,15 +211,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
             activatedView(R.id.play_second);
         } else {
-            if (pagImageViewGroup != null) {
-                containerView.removeView(pagImageViewGroup);
-                pagImageViewGroup.removeAllViews();
-                pagImageViewGroup = null;
-            }
-            if (pagView == null) {
-                addPAGViewAndPlay();
-            }
-            activatedView(R.id.play_first);
+            WemeetPAGView pagView1 = findViewById(R.id.wemeet_pag);
+            pagView1.playPAG();
+//            if (pagImageViewGroup != null) {
+//                containerView.removeView(pagImageViewGroup);
+//                pagImageViewGroup.removeAllViews();
+//                pagImageViewGroup = null;
+//            }
+//            if (pagView == null) {
+//                addPAGViewAndPlay();
+//            }
+//            activatedView(R.id.play_first);
         }
     }
 

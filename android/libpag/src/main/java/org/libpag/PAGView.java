@@ -335,7 +335,13 @@ public class PAGView extends TextureView implements TextureView.SurfaceTextureLi
         pagPlayer = new PAGPlayer();
         setSurfaceTextureListener(this);
         animationScale = getAnimationScale(getContext());
-        animator = ValueAnimator.ofFloat(0.0f, 1.0f);
+        animator = new ValueAnimator() {
+            @Override
+            public void setCurrentFraction(float fraction) {
+                super.setCurrentFraction(fraction);
+            }
+        };
+        animator.setFloatValues(0F, 1F);
         animator.setRepeatCount(0);
         animator.setInterpolator(new LinearInterpolator());
     }
